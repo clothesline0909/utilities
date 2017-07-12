@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# This script takes a snapshot of a database.
+
+### VARIABLES ###
+
+# The directory where the snapshot will be saved.
+SNAPSHOTS_DIR=/Users/bclark/Documents/Database\ Snapshots
+
+AM_DATABASE=amdev
+CLM_DATABASE=clmdev
+CM_DATABASE=cmdev
+DM_DATABASE=dmdev
+PM_DATABASE=pmdev
+RM_DATABASE=rmdev
+UM_DATABASE=umdev
+VM_DATABASE=vmdev
+WOM_DATABASE=womdev
+
+# Assign variables depending on database.
+case $1 in
+  am )
+    database=$AM_DATABASE
+    ;;
+  clm )
+    database=$CLM_DATABASE
+    ;;
+  cm )
+    database=$CM_DATABASE
+    ;;
+  dm )
+    database=$DM_DATABASE
+    ;;
+  pm )
+    database=$PM_DATABASE
+    ;;
+  rm )
+    database=$RM_DATABASE
+    ;;
+  um )
+    database=$UM_DATABASE
+    ;;
+  vm )
+    database=$VM_DATABASE
+    ;;
+  wom )
+    database=$WOM_DATABASE
+    ;;
+  * )
+    echo "Incorrect module name. Goodbye."
+    exit
+    ;;
+esac
+
+# Create the snapshot file.
+touch "${SNAPSHOTS_DIR}/${1}_snapshot.sql"
+
+# Dump the database.
+echo "Saving ${1} snapshot..."
+pg_dump ${database} > "${SNAPSHOTS_DIR}/${1}_snapshot.sql"
+
+echo "Snapshot complete."

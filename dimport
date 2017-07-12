@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# This script imports a dumped database into a Postgres database.
+
+### VARIABLES ###
+
+# The directory to which you will dump.
+DUMPS_DIR=/Users/bclark/Documents/Database\ Dumps
+
+AM_DATABASE=amdev
+CLM_DATABASE=clmdev
+CM_DATABASE=cmdev
+DM_DATABASE=dmdev
+PM_DATABASE=pmdev
+RM_DATABASE=rmdev
+UM_DATABASE=umdev
+VM_DATABASE=vmdev
+WOM_DATABASE=womdev
+
+# Assign variables depending on database.
+case $1 in
+  am )
+    database=$AM_DATABASE
+    ;;
+  clm )
+    database=$CLM_DATABASE
+    ;;
+  cm )
+    database=$CM_DATABASE
+    ;;
+  dm )
+    database=$DM_DATABASE
+    ;;
+  pm )
+    database=$PM_DATABASE
+    ;;
+  rm )
+    database=$RM_DATABASE
+    ;;
+  um )
+    database=$UM_DATABASE
+    ;;
+  vm )
+    database=$VM_DATABASE
+    ;;
+  wom )
+    database=$WOM_DATABASE
+    ;;
+  * )
+    echo "Incorrect module name. Goodbye."
+    exit
+    ;;
+esac
+
+# Import the dumped database.
+echo "Importing ${1} database..."
+psql ${database} < "${DUMPS_DIR}/${1}_staging.sql"
+
+echo "Import complete."

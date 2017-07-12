@@ -1,0 +1,187 @@
+#!/bin/bash
+
+# This script dumps staging databases to the /Documents/Database\ Dumps folder.
+# To connect to the remote database, you must have completed the necessary row in /~.pgpass.
+
+### VARIABLES ###
+
+# The directory to which you will dump.
+DUMPS_DIR=/Users/bclark/Documents/Database\ Dumps
+
+# If you change this, you must update it in ~/.pgpass.
+LOCAL_PORT=6666
+
+AM_URL=am-staging
+AM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+AM_DATABASE_PORT=5432
+AM_DATABASE=assetmanager
+AM_USER=am
+
+CLM_URL=clm-staging
+CLM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+CLM_DATABASE_PORT=5432
+CLM_DATABASE=checklistmanager
+CLM_USER=clm
+
+CM_URL=cm-staging
+CM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+CM_DATABASE_PORT=5432
+CM_DATABASE=communicationmanager
+CM_USER=cm
+
+DM_URL=dm-staging
+DM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+DM_DATABASE_PORT=5432
+DM_DATABASE=documentmanager
+DM_USER=dm
+
+PM_URL=pm-staging
+PM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+PM_DATABASE_PORT=5432
+PM_DATABASE=propertymanager
+PM_USER=pm
+
+RM_URL=rm-staging
+RM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+RM_DATABASE_PORT=5432
+RM_DATABASE=requestmanager
+RM_USER=rm
+
+UM_URL=um-staging
+UM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+UM_DATABASE_PORT=5432
+UM_DATABASE=um
+UM_USER=um
+
+VM_URL=vm-staging
+VM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+VM_DATABASE_PORT=5432
+VM_DATABASE=vendormanager
+VM_USER=vm
+
+WOM_URL=wom-staging
+WOM_DATABASE_HOST=pq-xperior-staging.c43oneajlbch.ap-southeast-2.rds.amazonaws.com
+WOM_DATABASE_PORT=5432
+WOM_DATABASE=workordermanager
+WOM_USER=wom
+
+### PROCESS ###
+
+# Handle options.
+WITH_IMPORT=false
+WITH_VERBOSE=false
+
+while getopts "iv" o; do
+  case "${o}" in
+    i )
+      WITH_IMPORT=true
+      ;;
+    v )
+      WITH_VERBOSE=true
+      ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# Kill processes running on local port.
+if $WITH_VERBOSE; then echo "Killing processes running on port $LOCAL_PORT."; fi
+lsof -i tcp:${LOCAL_PORT} | awk 'NR!=1 {print $2}' | xargs kill
+if $WITH_VERBOSE; then echo "Successfully killed processes."; fi
+
+
+# Assign variables depending on database.
+case $1 in
+  am )
+    url=$AM_URL
+    host=$AM_DATABASE_HOST
+    port=$AM_DATABASE_PORT
+    database=$AM_DATABASE
+    user=$AM_USER
+    ;;
+  clm )
+    url=$CLM_URL
+    host=$CLM_DATABASE_HOST
+    port=$CLM_DATABASE_PORT
+    database=$CLM_DATABASE
+    user=$CLM_USER
+    ;;
+  cm )
+    url=$CM_URL
+    host=$CM_DATABASE_HOST
+    port=$CM_DATABASE_PORT
+    database=$CM_DATABASE
+    user=$CM_USER
+    ;;
+  dm )
+    url=$DM_URL
+    host=$DM_DATABASE_HOST
+    port=$DM_DATABASE_PORT
+    database=$DM_DATABASE
+    user=$DM_USER
+    ;;
+  pm )
+    url=$PM_URL
+    host=$PM_DATABASE_HOST
+    port=$PM_DATABASE_PORT
+    database=$PM_DATABASE
+    user=$PM_USER
+    ;;
+  rm )
+    url=$RM_URL
+    host=$RM_DATABASE_HOST
+    port=$RM_DATABASE_PORT
+    database=$RM_DATABASE
+    user=$RM_USER
+    ;;
+  um )
+    url=$UM_URL
+    host=$UM_DATABASE_HOST
+    port=$UM_DATABASE_PORT
+    database=$UM_DATABASE
+    user=$UM_USER
+    ;;
+  vm )
+    url=$VM_URL
+    host=$VM_DATABASE_HOST
+    port=$VM_DATABASE_PORT
+    database=$VM_DATABASE
+    user=$VM_USER
+    ;;
+  wom )
+    url=$WOM_URL
+    host=$WOM_DATABASE_HOST
+    port=$WOM_DATABASE_PORT
+    database=$WOM_DATABASE
+    user=$WOM_USER
+    ;;
+  * )
+    echo "Incorrect module name. Goodbye."
+    exit
+    ;;
+esac
+
+# Try to create a local port forwarding SSH tunnel.
+if $WITH_VERBOSE; then echo "Trying to create local port forwarding SSH tunnel on port $LOCAL_PORT."; fi
+if ! ssh deploy@${url}.platform.im -f -N -L ${LOCAL_PORT}:${host}:${port}; then
+  echo "Failed to make SSH tunnel."
+  exit
+fi;
+if $WITH_VERBOSE; then echo "Successfully started SSH tunnel."; fi
+
+# Wait for local port to open up.
+while ! nc -z localhost ${LOCAL_PORT}; do
+  echo 'Waiting for local port to open...'
+  sleep 0.5
+  ((c++)) && ((c==10)) && echo "Couldn't connect to local port." && exit
+done
+if $WITH_VERBOSE; then echo "Tunnel opened on port $LOCAL_PORT."; fi
+
+# Dump the database.
+echo "Dumping $1 database..."
+pg_dump -h localhost -p ${LOCAL_PORT} -U ${user} -d ${database} -c > "${DUMPS_DIR}/$1_staging.sql"
+echo "Dump complete."
+
+# Also import the database if indicated.
+if $WITH_IMPORT; then
+  dimport ${1}
+fi
